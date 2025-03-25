@@ -17,7 +17,7 @@ export class AuthService {
   ) {}
 
   async validateUserWithPassword(email: string, pass: string) {
-    const user = await this.usersService.getUserByEmail(email);
+    const user = await this.usersService.getUserFromDbByEmail(email);
     if (user.isErr()) {
       return errAsync(user.error);
     }
@@ -39,7 +39,7 @@ export class AuthService {
   }
 
   async validateUser(email: string) {
-    const user = await this.usersService.getUserByEmail(email);
+    const user = await this.usersService.getUserFromDbByEmail(email);
     if (user.isErr()) {
       return errAsync(user.error);
     }
@@ -58,6 +58,6 @@ export class AuthService {
     if (user.isErr()) {
       return errAsync(user.error);
     }
-    return user.value;
+    return okAsync(user.value);
   }
 }

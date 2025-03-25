@@ -1,13 +1,13 @@
 export class User {
   id: number;
   email: string;
-  name?: string;
-  lastName?: string;
-  profilePic?: string;
-  password?: string;
-  refreshToken?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  name: string | null;
+  lastName: string | null;
+  profilePic: string | null;
+  password: string | null;
+  refreshToken: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export class CreateUserDto {
