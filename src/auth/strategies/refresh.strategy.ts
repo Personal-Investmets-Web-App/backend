@@ -4,13 +4,17 @@ import { Injectable } from '@nestjs/common';
 import { envs } from 'src/config/envs';
 import { UserJwt, UserJwtSchema } from '../auth.models';
 import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
+
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class RefreshJwtStrategy extends PassportStrategy(
+  Strategy,
+  'refresh-jwt',
+) {
   constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: envs.JWT_SECRET,
+      secretOrKey: envs.REFRESH_JWT_SECRET,
     });
   }
 

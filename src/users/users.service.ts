@@ -1,93 +1,86 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DrizzleService } from 'src/drizzle/drizzle.service';
-import { CreateUserDto, UpdateUserDto, User } from './users.models';
+import {
+  User,
+  UserInsertDto,
+  UserInsertSchema,
+  UserUpdateDto,
+  UserUpdateSchema,
+} from './users.models';
 import { Result, ResultAsync, errAsync, okAsync } from 'neverthrow';
-import * as bcrypt from 'bcrypt';
 import { eq } from 'drizzle-orm';
-import { bcryptConstants } from './utils/constants';
 import {
   CreationError,
   NotFoundError,
   UpdateError,
   DeletionError,
-  DBError,
   AlreadyExistsError,
-} from 'src/utils/shared-errors';
-
-export type CreateUserInDbError =
-  | { type: 'ALREADY_EXISTS'; error: AlreadyExistsError }
-  | { type: 'DB_ERROR'; error: DBError }
-  | { type: 'CREATION_ERROR'; error: CreationError };
-
-export type GetUserFromDbError =
-  | { type: 'NOT_FOUND'; error: NotFoundError }
-  | { type: 'DB_ERROR'; error: DBError };
-
-export type UpdateUserInDbError =
-  | { type: 'NOT_FOUND'; error: NotFoundError }
-  | { type: 'DB_ERROR'; error: DBError }
-  | { type: 'UPDATE_ERROR'; error: UpdateError };
-
-export type DeleteUserInDbError =
-  | { type: 'NOT_FOUND'; error: NotFoundError }
-  | { type: 'DB_ERROR'; error: DBError }
-  | { type: 'DELETION_ERROR'; error: DeletionError };
-
-export type GetAllUsersFromDbError = { type: 'DB_ERROR'; error: DBError };
+} from 'src/shared/errors/crud-erros';
+import { hashPassword } from 'src/shared/utils/cripto';
+import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
+import { DbError } from 'src/drizzle/drizzle.errors';
+import {
+  CreateUserInDbError,
+  DeleteUserInDbError,
+  GetUserFromDbError,
+  UpdateUserInDbError,
+} from './users.errors';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(private readonly orm: DrizzleService) {}
 
+  @ValidateFuncInput(UserInsertSchema)
   async createUserInDb(
-    createUserDto: CreateUserDto,
+    userInsertDto: UserInsertDto,
   ): Promise<Result<User, CreateUserInDbError>> {
     // Check if user already exists
-    const user = await this.getUserFromDbByEmail(createUserDto.email);
+    const user = await this.getUserFromDbByEmail(userInsertDto.email);
     if (user.isOk()) {
-      return errAsync({
+      this.logger.error('createUserInDb', 'User already exists');
+      const alreadyExistsError: AlreadyExistsError = {
         type: 'ALREADY_EXISTS',
-        error: new AlreadyExistsError('User already exists'),
-      });
+        error: new Error('User already exists'),
+      };
+      return errAsync(alreadyExistsError);
     }
 
     // Hash password if provided
-    if (createUserDto.password) {
-      const hashedPassword = await bcrypt.hash(
-        createUserDto.password,
-        bcryptConstants.saltRounds,
-      );
-      createUserDto.password = hashedPassword;
+    if (userInsertDto.password) {
+      const hashedPassword = await hashPassword(userInsertDto.password);
+      userInsertDto.password = hashedPassword;
     }
 
     // Create user in db
     const result = await ResultAsync.fromPromise(
       this.orm.db
         .insert(this.orm.schema.usersTable)
-        .values(createUserDto)
+        .values(userInsertDto)
         .returning(),
       (e) => {
-        this.logger.error('Error creating user in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('createUserInDb', result.error);
+      const error: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(error);
     }
 
     // Handle user creation errors
     if (result.value.length === 0) {
-      this.logger.error('No user returned from db');
-      return errAsync({
+      this.logger.error('createUserInDb', 'No user returned from db');
+      const creationError: CreationError = {
         type: 'CREATION_ERROR',
-        error: new CreationError('No user returned from db'),
-      });
+        error: new Error('No user returned from db'),
+      };
+      return errAsync(creationError);
     }
 
     // Return created user
@@ -105,26 +98,28 @@ export class UsersService {
         .from(this.orm.schema.usersTable)
         .where(eq(this.orm.schema.usersTable.email, email)),
       (e) => {
-        this.logger.error('Error getting user by email', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('getUserFromDbByEmail', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is found, return error
     if (result.value.length === 0) {
-      this.logger.error('User not found in db');
-      return errAsync({
+      this.logger.error('getUserFromDbByEmail', 'User not found in db');
+      const notFoundError: NotFoundError = {
         type: 'NOT_FOUND',
-        error: new NotFoundError('User not found in db'),
-      });
+        error: new Error('User not found in db'),
+      };
+      return errAsync(notFoundError);
     }
 
     // Return found user
@@ -142,26 +137,28 @@ export class UsersService {
         .from(this.orm.schema.usersTable)
         .where(eq(this.orm.schema.usersTable.id, id)),
       (e) => {
-        this.logger.error('Error getting user by id', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('getUserFromDbById', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is found, return error
     if (result.value.length === 0) {
       this.logger.error('User not found in db');
-      return errAsync({
+      const notFoundError: NotFoundError = {
         type: 'NOT_FOUND',
-        error: new NotFoundError('User not found in db'),
-      });
+        error: new Error('User not found in db'),
+      };
+      return errAsync(notFoundError);
     }
 
     // Return found user
@@ -169,18 +166,22 @@ export class UsersService {
     return okAsync(user);
   }
 
+  @ValidateFuncInput(UserUpdateSchema, 1)
   async updateUserInDbById(
     id: number,
-    updateUserDto: UpdateUserDto,
+    userUpdateDto: UserUpdateDto,
   ): Promise<Result<User, UpdateUserInDbError>> {
     // Check if user exists
     const user = await this.getUserFromDbById(id);
     if (user.isErr()) {
       if (user.error.type === 'NOT_FOUND') {
-        this.logger.error('User to delete not found in db');
+        this.logger.error(
+          'updateUserInDbById',
+          'User to update not found in db',
+        );
         return errAsync(user.error);
       }
-      this.logger.error('Error updating user in db', user.error);
+      this.logger.error('updateUserInDbById', user.error);
       return errAsync(user.error);
     }
 
@@ -188,30 +189,32 @@ export class UsersService {
     const result = await ResultAsync.fromPromise(
       this.orm.db
         .update(this.orm.schema.usersTable)
-        .set(updateUserDto)
+        .set(userUpdateDto)
         .where(eq(this.orm.schema.usersTable.id, id))
         .returning(),
       (e) => {
-        this.logger.error('Error updating user in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('updateUserInDbById', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is returned from db, return error
     if (result.value.length === 0) {
-      this.logger.error('No user returned from db');
-      return errAsync({
+      this.logger.error('updateUserInDbById', 'No user returned from db');
+      const updateError: UpdateError = {
         type: 'UPDATE_ERROR',
-        error: new UpdateError('No user returned from db'),
-      });
+        error: new Error('No user returned from db'),
+      };
+      return errAsync(updateError);
     }
 
     // Return updated user
@@ -226,10 +229,13 @@ export class UsersService {
     const user = await this.getUserFromDbById(id);
     if (user.isErr()) {
       if (user.error.type === 'NOT_FOUND') {
-        this.logger.error('User to delete not found in db');
+        this.logger.error(
+          'deleteUserInDbById',
+          'User to delete not found in db',
+        );
         return errAsync(user.error);
       }
-      this.logger.error('Error updating user in db', user.error);
+      this.logger.error('deleteUserInDbById', user.error);
       return errAsync(user.error);
     }
 
@@ -240,26 +246,28 @@ export class UsersService {
         .where(eq(this.orm.schema.usersTable.id, id))
         .returning(),
       (e) => {
-        this.logger.error('Error deleting user in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('deleteUserInDbById', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is returned from db, return error
     if (result.value.length === 0) {
-      this.logger.error('No user returned from db');
-      return errAsync({
+      this.logger.error('deleteUserInDbById', 'No user returned from db');
+      const deletionError: DeletionError = {
         type: 'DELETION_ERROR',
-        error: new DeletionError('No user returned from db'),
-      });
+        error: new Error('No user returned from db'),
+      };
+      return errAsync(deletionError);
     }
 
     // Return deleted user
@@ -267,18 +275,22 @@ export class UsersService {
     return okAsync(deletedUser);
   }
 
+  @ValidateFuncInput(UserUpdateSchema, 1)
   async updateUserInDbByEmail(
     email: string,
-    updateUserDto: UpdateUserDto,
+    userUpdateDto: UserUpdateDto,
   ): Promise<Result<User, UpdateUserInDbError>> {
     // Check if user exists
     const user = await this.getUserFromDbByEmail(email);
     if (user.isErr()) {
       if (user.error.type === 'NOT_FOUND') {
-        this.logger.error('User to update not found in db');
+        this.logger.error(
+          'updateUserInDbByEmail',
+          'User to update not found in db',
+        );
         return errAsync(user.error);
       }
-      this.logger.error('Error updating user in db', user.error);
+      this.logger.error('updateUserInDbByEmail', user.error);
       return errAsync(user.error);
     }
 
@@ -286,30 +298,32 @@ export class UsersService {
     const result = await ResultAsync.fromPromise(
       this.orm.db
         .update(this.orm.schema.usersTable)
-        .set(updateUserDto)
+        .set(userUpdateDto)
         .where(eq(this.orm.schema.usersTable.email, email))
         .returning(),
       (e) => {
-        this.logger.error('Error updating user in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('updateUserInDbByEmail', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is returned from db, return error
     if (result.value.length === 0) {
-      this.logger.error('No user returned from db');
-      return errAsync({
+      this.logger.error('updateUserInDbByEmail', 'No user returned from db');
+      const updateError: UpdateError = {
         type: 'UPDATE_ERROR',
-        error: new UpdateError('No user returned from db'),
-      });
+        error: new Error('No user returned from db'),
+      };
+      return errAsync(updateError);
     }
 
     // Return updated user
@@ -324,10 +338,13 @@ export class UsersService {
     const user = await this.getUserFromDbByEmail(email);
     if (user.isErr()) {
       if (user.error.type === 'NOT_FOUND') {
-        this.logger.error('User to delete not found in db');
+        this.logger.error(
+          'deleteUserInDbByEmail',
+          'User to delete not found in db',
+        );
         return errAsync(user.error);
       }
-      this.logger.error('Error deleting user in db', user.error);
+      this.logger.error('deleteUserInDbByEmail', user.error);
       return errAsync(user.error);
     }
 
@@ -338,26 +355,28 @@ export class UsersService {
         .where(eq(this.orm.schema.usersTable.email, email))
         .returning(),
       (e) => {
-        this.logger.error('Error deleting user in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('deleteUserInDbByEmail', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // If no user is returned from db, return error
     if (result.value.length === 0) {
-      this.logger.error('No user returned from db');
-      return errAsync({
+      this.logger.error('deleteUserInDbByEmail', 'No user returned from db');
+      const deletionError: DeletionError = {
         type: 'DELETION_ERROR',
-        error: new DeletionError('No user returned from db'),
-      });
+        error: new Error('No user returned from db'),
+      };
+      return errAsync(deletionError);
     }
 
     // Return deleted user
@@ -365,22 +384,23 @@ export class UsersService {
     return okAsync(deletedUser);
   }
 
-  async getAllUsersInDb(): Promise<Result<User[], GetAllUsersFromDbError>> {
-    // Get all users in db
+  async getAllUsersFromDb(): Promise<Result<User[], DbError>> {
+    // Get all users from db
     const result = await ResultAsync.fromPromise(
       this.orm.db.select().from(this.orm.schema.usersTable),
       (e) => {
-        this.logger.error('Error getting all users in db', e);
         return e instanceof Error ? e : new Error(String(e));
       },
     );
 
     // Handle db errors
     if (result.isErr()) {
-      return errAsync({
+      this.logger.error('getAllUsersFromDb', result.error);
+      const dbError: DbError = {
         type: 'DB_ERROR',
-        error: new DBError(String(result.error)),
-      });
+        error: new Error(String(result.error)),
+      };
+      return errAsync(dbError);
     }
 
     // Return all users

@@ -1,25 +1,17 @@
-export class User {
-  id: number;
-  email: string;
-  name: string | null;
-  lastName: string | null;
-  profilePic: string | null;
-  password: string | null;
-  refreshToken: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-}
+import {
+  UserTableInsertSchema,
+  UserTableSchema,
+  UserTableUpdateSchema,
+} from 'src/drizzle/schema';
+import { z } from 'zod';
 
-export class CreateUserDto {
-  email: string;
-  name?: string;
-  lastName?: string;
-  profilePic?: string;
-  password?: string;
-  refreshToken?: string;
-}
+// Database coupling
+// If database changes, only this file needs to be update
+export const UserSchema = UserTableSchema;
+export type User = z.infer<typeof UserSchema>;
 
-export class UpdateUserDto {
-  password?: string;
-  refreshToken?: string;
-}
+export const UserInsertSchema = UserTableInsertSchema;
+export type UserInsertDto = z.infer<typeof UserInsertSchema>;
+
+export const UserUpdateSchema = UserTableUpdateSchema;
+export type UserUpdateDto = z.infer<typeof UserUpdateSchema>;

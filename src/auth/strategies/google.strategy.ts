@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
 import { envs } from 'src/config/envs';
-import { DBError } from 'src/users/utils/errors';
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   private readonly logger = new Logger(GoogleStrategy.name);
@@ -12,16 +12,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: envs.GOOGLE_CLIENT_ID,
       clientSecret: envs.GOOGLE_CLIENT_SECRET,
-      callbackURL: 'http://localhost:3000/auth/google/redirect',
+      callbackURL: envs.GOOGLE_REDIRECT_URI,
       scope: ['profile', 'email'],
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: Profile) {
-    this.logger.log(accessToken);
-    this.logger.log(refreshToken);
-    this.logger.log(profile);
-
+  async validate(
+    _accessToken: string,
+    _refreshToken: string,
+    profile: Profile,
+  ) {
+    // Check if email is present in profile
     if (!profile.emails || profile.emails.length === 0) {
       this.logger.error('No email found in profile');
       throw new HttpException(
@@ -30,32 +31,63 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       );
     }
 
+    // Check if email is verified
+    const isVerified = profile.emails[0].verified;
+    if (!isVerified) {
+      this.logger.error('Email not verified');
+      throw new HttpException('Email not verified', HttpStatus.BAD_REQUEST);
+    }
+
+    // Validate if user is registered
     const registeredUser = await this.authService.validateUser(
       profile.emails[0].value,
     );
 
     if (registeredUser.isOk()) {
-      return registeredUser.value;
+      return {
+        id: registeredUser.value.id,
+        email: registeredUser.value.email,
+        name: registeredUser.value.name,
+        lastName: registeredUser.value.lastName,
+        profilePic: registeredUser.value.profilePic ?? undefined,
+        registerMethod: registeredUser.value.registerMethod,
+      };
     }
 
     // Se descarta el error de DBError
-    if (registeredUser.error instanceof DBError) {
+    if (registeredUser.error.type === 'DB_ERROR') {
       this.logger.error('Error validating user', registeredUser.error);
-      throw new HttpException('Error validating user', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Error validating user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
 
-    // A este punto, el error solo puede ser UserNotFoundError
+    // A este punto, el error es por que el usuario no existe en la DB
     this.logger.log('User not found, creating user');
+    // Se crea un nuevo usuario
     const newUser = await this.authService.register({
       email: profile.emails[0].value,
-      name: profile.displayName,
+      name: profile.name?.givenName ?? '',
+      lastName: profile.name?.familyName ?? '',
       profilePic: profile.photos![0].value ?? undefined,
+      registerMethod: 'google',
     });
 
+    // Se valida que el usuario se haya creado correctamente
     if (newUser.isErr()) {
       this.logger.error('Error creating user', newUser.error);
       throw new HttpException('Error creating user', HttpStatus.BAD_REQUEST);
     }
-    return newUser.value;
+
+    // Se retorna el nuevo usuario
+    return {
+      id: newUser.value.id,
+      email: newUser.value.email,
+      name: newUser.value.name,
+      lastName: newUser.value.lastName,
+      profilePic: newUser.value.profilePic ?? undefined,
+      registerMethod: newUser.value.registerMethod,
+    };
   }
 }
