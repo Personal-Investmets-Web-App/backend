@@ -17,6 +17,7 @@ export const usersTable = pgTable('users_table', {
   name: text('name').notNull(),
   lastName: text('last_name').notNull(),
   profilePic: text('profile_pic'),
+  hashedRefreshToken: text('hashed_refresh_token'),
   password: text('password'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

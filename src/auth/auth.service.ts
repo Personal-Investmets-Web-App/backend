@@ -1,13 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { comparePassword } from 'src/shared/utils/cripto';
+import {
+  comparePassword,
+  hashLongString,
+  verifyLongString,
+} from 'src/shared/utils/cripto';
 import { errAsync, okAsync, Result } from 'neverthrow';
 import { User, UserInsertDto, UserInsertSchema } from 'src/users/users.models';
 import { LoginDto, LoginSchema, UserJwt, UserJwtSchema } from './auth.models';
 import { envs } from 'src/config/envs';
 import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
 import {
+  IssueTokenError,
   UserHasNoPasswordError,
   UserPasswordIsInvalidError,
   ValidateUserWithPasswordError,
@@ -66,17 +71,6 @@ export class AuthService {
     return okAsync(user.value);
   }
 
-  @ValidateFuncInput(UserJwtSchema)
-  login(user: UserJwt) {
-    return {
-      access_token: this.jwtService.sign(user),
-      refresh_token: this.jwtService.sign(user, {
-        secret: envs.REFRESH_JWT_SECRET,
-        expiresIn: envs.REFRESH_JWT_EXPIRE_IN,
-      }),
-    };
-  }
-
   @ValidateFuncInput(UserInsertSchema)
   async register(createUserDto: UserInsertDto) {
     const user = await this.usersService.createUserInDb(createUserDto);
@@ -87,13 +81,130 @@ export class AuthService {
   }
 
   @ValidateFuncInput(UserJwtSchema)
-  refreshToken(user: UserJwt) {
-    return {
-      access_token: this.jwtService.sign(user),
-      refresh_token: this.jwtService.sign(user, {
-        secret: envs.REFRESH_JWT_SECRET,
-        expiresIn: envs.REFRESH_JWT_EXPIRE_IN,
-      }),
-    };
+  async login(user: UserJwt) {
+    const tokens = await this.createTokens(user);
+
+    if (tokens.isErr()) {
+      return errAsync(tokens.error);
+    }
+
+    const hashedRefreshToken = await hashLongString(tokens.value.refreshToken);
+    const updatedUser = await this.usersService.updateUserInDbById(user.id, {
+      hashedRefreshToken: hashedRefreshToken,
+    });
+
+    if (updatedUser.isErr()) {
+      return errAsync(updatedUser.error);
+    }
+
+    return okAsync({
+      accessToken: tokens.value.accessToken,
+      refreshToken: tokens.value.refreshToken,
+    });
+  }
+
+  async logOut(user: UserJwt) {
+    const updatedUser = await this.usersService.updateUserInDbById(user.id, {
+      hashedRefreshToken: null,
+    });
+
+    if (updatedUser.isErr()) {
+      return errAsync(updatedUser.error);
+    }
+
+    return okAsync(updatedUser.value);
+  }
+
+  @ValidateFuncInput(UserJwtSchema)
+  async refreshToken(user: UserJwt) {
+    const tokens = await this.login(user);
+    if (tokens.isErr()) {
+      return errAsync(tokens.error);
+    }
+
+    return okAsync(tokens.value);
+  }
+
+  @ValidateFuncInput(UserJwtSchema)
+  async createTokens(user: UserJwt) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.createAccessToken(user),
+      this.createRefreshToken(user),
+    ]);
+
+    if (accessToken.isErr()) {
+      return errAsync(accessToken.error);
+    }
+
+    if (refreshToken.isErr()) {
+      return errAsync(refreshToken.error);
+    }
+
+    return okAsync({
+      accessToken: accessToken.value,
+      refreshToken: refreshToken.value,
+    });
+  }
+
+  @ValidateFuncInput(UserJwtSchema)
+  createAccessToken(user: UserJwt) {
+    const accessToken = Result.fromThrowable(
+      (user: UserJwt) => this.jwtService.sign(user),
+      () => {
+        const issueTokenError: IssueTokenError = {
+          type: 'ISSUE_TOKEN_ERROR',
+          error: new Error('Failed to issue access token'),
+        };
+        return issueTokenError;
+      },
+    );
+    return accessToken(user);
+  }
+
+  @ValidateFuncInput(UserJwtSchema)
+  createRefreshToken(user: UserJwt) {
+    const refreshToken = Result.fromThrowable(
+      (user: UserJwt) =>
+        this.jwtService.sign(user, {
+          secret: envs.REFRESH_JWT_SECRET,
+          expiresIn: envs.REFRESH_JWT_EXPIRE_IN,
+        }),
+      () => {
+        const issueTokenError: IssueTokenError = {
+          type: 'ISSUE_TOKEN_ERROR',
+          error: new Error('Failed to issue refresh token'),
+        };
+        return issueTokenError;
+      },
+    );
+    return refreshToken(user);
+  }
+
+  async validateRefreshToken(userId: number, refreshToken: string) {
+    const user = await this.usersService.getUserFromDbById(userId);
+    if (user.isErr()) {
+      return errAsync(user.error);
+    }
+
+    if (!user.value.hashedRefreshToken) {
+      return errAsync({
+        type: 'EXPIRED_REFRESH_TOKEN_ERROR',
+        error: new Error('User has no refresh token'),
+      });
+    }
+
+    const isRefreshTokenValid = await verifyLongString(
+      refreshToken,
+      user.value.hashedRefreshToken,
+    );
+
+    if (!isRefreshTokenValid) {
+      return errAsync({
+        type: 'EXPIRED_REFRESH_TOKEN_ERROR',
+        error: new Error('Refresh token is invalid'),
+      });
+    }
+
+    return okAsync(user.value);
   }
 }

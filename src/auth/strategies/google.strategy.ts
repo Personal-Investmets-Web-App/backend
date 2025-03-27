@@ -44,14 +44,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     );
 
     if (registeredUser.isOk()) {
-      return {
-        id: registeredUser.value.id,
-        email: registeredUser.value.email,
-        name: registeredUser.value.name,
-        lastName: registeredUser.value.lastName,
-        profilePic: registeredUser.value.profilePic ?? undefined,
-        registerMethod: registeredUser.value.registerMethod,
-      };
+      return registeredUser.value;
     }
 
     // Se descarta el error de DBError
@@ -81,13 +74,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     }
 
     // Se retorna el nuevo usuario
-    return {
-      id: newUser.value.id,
-      email: newUser.value.email,
-      name: newUser.value.name,
-      lastName: newUser.value.lastName,
-      profilePic: newUser.value.profilePic ?? undefined,
-      registerMethod: newUser.value.registerMethod,
-    };
+    return newUser.value;
   }
 }

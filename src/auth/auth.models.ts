@@ -5,6 +5,7 @@ export const UserProfileSchema = UserSchema.omit({
   password: true,
   createdAt: true,
   updatedAt: true,
+  hashedRefreshToken: true,
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -13,6 +14,7 @@ export const UserJwtSchema = UserSchema.omit({
   profilePic: true,
   createdAt: true,
   updatedAt: true,
+  hashedRefreshToken: true,
 });
 export type UserJwt = z.infer<typeof UserJwtSchema>;
 
