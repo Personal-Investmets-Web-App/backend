@@ -42,4 +42,4 @@ USER nestjs
 EXPOSE 443
 
 # Comando para iniciar la aplicación
-CMD ["node", "dist/main"] 
+CMD ["node", "dist/src/main.js"]
