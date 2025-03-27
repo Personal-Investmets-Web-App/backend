@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: invest-control-backend
+    ports:
+      - "443:443"
+    environment:
+      - NODE_ENV=production
+      - MAIN_DB_URL=${MAIN_DB_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRE_IN=${JWT_EXPIRE_IN}
+      - REFRESH_JWT_SECRET=${REFRESH_JWT_SECRET}
+      - REFRESH_JWT_EXPIRE_IN=${REFRESH_JWT_EXPIRE_IN}
+      - PORT=${PORT}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+    restart: unless-stopped
+    volumes:
+      - ./ssl:/app/ssl
+    # Para HTTPS necesitarás certificados SSL
+    command: >
+      sh -c "
+        if [ -f /app/ssl/certificate.crt ] && [ -f /app/ssl/private.key ]; then
+          node dist/main
+        else
+          echo 'Error: SSL certificates not found!'
+          exit 1
+        fi
+      "

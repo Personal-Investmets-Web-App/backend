@@ -25,7 +25,8 @@ definitions:
           - pnpm install
           - pnpm run build
           - echo "Deploying to production environment"
-          # Add your production deployment commands here
+          - npm install -g render-cli
+          - render deploy --service-id $RENDER_SERVICE_ID
 
     - step: &deploy-development
         name: Deploy to Development

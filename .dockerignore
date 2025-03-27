@@ -1,0 +1,41 @@
+# Archivos y directorios de control de versiones
+.git
+.gitignore
+.github
+
+# Directorios de dependencias
+node_modules
+npm-debug.log
+
+# Archivos de entorno y configuración
+.env
+.env.*
+!.env.example
+
+# Directorios de compilación
+/dist
+/build
+/coverage
+
+# Archivos de IDE y editores
+.idea
+.vscode
+*.swp
+*.swo
+
+# Archivos de prueba
+/test
+/tests
+/spec
+*.spec.ts
+*.test.ts
+
+# Archivos de documentación
+README.md
+CHANGELOG.md
+doc
+docs
+
+# Otros archivos
+.DS_Store
+*.log 
