@@ -1,35 +1,70 @@
-# This is an example Starter pipeline configuration
-# Use a skeleton to build, test and deploy using manual and parallel steps
-# -----
-# You can specify a custom docker image from Docker Hub as your build environment.
+image: node:22-alpine
 
-image: atlassian/default-image:3
+definitions:
+  caches:
+    pnpm: $HOME/.pnpm-store
+  steps:
+    - step: &build-test
+        name: Build and Test
+        caches:
+          - pnpm
+        script:
+          - npm install -g pnpm
+          - pnpm install
+          - pnpm run build
+        artifacts:
+          - dist/**
+
+    - step: &deploy-production
+        name: Deploy to Production
+        deployment: production
+        caches:
+          - pnpm
+        script:
+          - npm install -g pnpm
+          - pnpm install
+          - pnpm run build
+          - echo "Deploying to production environment"
+          # Add your production deployment commands here
+
+    - step: &deploy-development
+        name: Deploy to Development
+        deployment: development
+        caches:
+          - pnpm
+        script:
+          - npm install -g pnpm
+          - pnpm install
+          - pnpm run build
+          - echo "Deploying to development environment"
+          # Add your development deployment commands here
+
+    - step: &deploy-qa
+        name: Deploy to QA
+        deployment: qa
+        caches:
+          - pnpm
+        script:
+          - npm install -g pnpm
+          - pnpm install
+          - pnpm run build
+          - echo "Deploying to QA environment"
+          # Add your QA deployment commands here
 
 pipelines:
-  default:
-    - parallel:
-      - step:
-          name: 'Build and Test'
-          script:
-            - echo "Your build and test goes here..."
-      - step:
-          name: 'Lint'
-          script:
-            - echo "Your linting goes here..."
-      - step:
-          name: 'Security scan'
-          script:
-            - echo "Your security scan goes here..."
-
-    # The following deployment steps will be executed for each pipeline run. To configure your steps and conditionally deploy see https://support.atlassian.com/bitbucket-cloud/docs/configure-bitbucket-pipelinesyml/
-    - step:
-        name: 'Deployment to Staging'
-        deployment: staging
-        script:
-          - echo "Your deployment to staging script goes here..."
-    - step:
-        name: 'Deployment to Production'
-        deployment: production
-        trigger: 'manual'
-        script:
-          - echo "Your deployment to production script goes here..."
+  branches:
+    master:
+      - step: *build-test
+      - step: *deploy-production
+    
+    desarrollo:
+      - step: *build-test
+      - step: *deploy-development
+    
+    qa:
+      - step: *build-test
+      - step: *deploy-qa
+    
+  pull-requests:
+    '**':
+      - step: *build-test
