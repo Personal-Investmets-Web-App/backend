@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 import { AUTH_ERRORS } from '../../infra/auth.errors';
-import { CRUD_ERRORS } from 'src/shared/errors/crud-erros';
+import { CRUD_ERRORS } from 'src/shared/infra/errors/crud-erros';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {

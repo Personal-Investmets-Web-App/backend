@@ -1,14 +1,6 @@
 import { z } from 'zod';
 import { UserSchema } from 'src/user/domain/user.entities';
 
-export const UserProfileSchema = UserSchema.omit({
-  password: true,
-  createdAt: true,
-  updatedAt: true,
-  hashedRefreshToken: true,
-});
-export type UserProfile = z.infer<typeof UserProfileSchema>;
-
 export const UserJwtSchema = UserSchema.omit({
   password: true,
   profilePic: true,

@@ -14,7 +14,7 @@ import {
   UserJwtSchema,
 } from '../infra/auth.models';
 import { envs } from 'src/config/envs';
-import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
+import { ValidateFuncInput } from 'src/shared/app/decorators/validate-function-input';
 import {
   AUTH_ERRORS,
   IssueTokenError,

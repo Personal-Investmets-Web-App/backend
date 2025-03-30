@@ -8,6 +8,7 @@ import {
   InternalServerErrorException,
   Logger,
   Post,
+  Redirect,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -25,20 +26,23 @@ import {
   TokensAndUserSchema,
   UserJwt,
   UserJwtSchema,
-  UserProfile,
-  UserProfileSchema,
 } from '../infra/auth.models';
 
 import { LocalAuthGuard } from './guards/local.guard';
-import { JwtAuthGuard } from './guards/jwt.guard';
 import { RefreshJwtAuthGuard } from './guards/refresh-jwt.guard';
 import { GoogleAuthGuard } from './guards/google.guard';
 
-import { SerializeOutput } from 'src/shared/decorators/serialize-controller';
-import { BodyValidationGuard } from 'src/shared/guards/validate-body.guard';
-import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
-import { CRUD_ERRORS } from 'src/shared/errors/crud-erros';
-import { REGISTER_METHOD } from 'src/user/domain/user.entities';
+import { SerializeOutput } from 'src/shared/app/decorators/serialize-controller';
+import { BodyValidationGuard } from 'src/shared/app/guards/validate-body.guard';
+import { ValidateFuncInput } from 'src/shared/app/decorators/validate-function-input';
+import { CRUD_ERRORS } from 'src/shared/infra/errors/crud-erros';
+import {
+  REGISTER_METHOD,
+  UserProfile,
+  UserProfileSchema,
+} from 'src/user/domain/user.entities';
+import { Public } from './decorators/public.decorator';
+import { envs } from 'src/config/envs';
 
 @Controller('api/auth')
 export class AuthController {
@@ -47,6 +51,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Get('google/login')
+  @Public()
   @UseGuards(GoogleAuthGuard)
   handleGoogleLogin() {
     // Logic Managed by Google Auth Guard, no need to implement
@@ -54,15 +59,19 @@ export class AuthController {
   }
 
   @Get('google/redirect')
+  @Public()
   @UseGuards(GoogleAuthGuard)
-  @SerializeOutput(TokensAndUserSchema)
-  async handleGoogleRedirect(
-    @Request() req: GoogleStrategyRequest,
-  ): Promise<TokensAndUserDto> {
-    return await this.login(req.user);
+  @Redirect(`${envs.FRONTEND_REDIRECT_URI}}`, 302)
+  async handleGoogleRedirect(@Request() req: GoogleStrategyRequest) {
+    const result = await this.login(req.user);
+    return {
+      url: `${envs.FRONTEND_REDIRECT_URI}?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
+      statusCode: 302,
+    };
   }
 
   @Post('login')
+  @Public()
   @UseGuards(new BodyValidationGuard(LoginSchema), LocalAuthGuard)
   @SerializeOutput(TokensAndUserSchema)
   async localLogin(
@@ -72,7 +81,6 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async logOut(@Request() req: JwtStrategyRequest) {
     const result = await this.authService.logOut(req.user);
@@ -87,6 +95,7 @@ export class AuthController {
   }
 
   @Post('register/email')
+  @Public()
   @UseGuards(new BodyValidationGuard(RegisterWithEmailAndPasswordSchema))
   @SerializeOutput(TokensAndUserSchema)
   async registerWithEmailAndPassword(
@@ -109,7 +118,6 @@ export class AuthController {
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
   @SerializeOutput(UserProfileSchema)
   async getProfile(@Request() req: JwtStrategyRequest): Promise<UserProfile> {
     const result = await this.authService.validateUser(req.user.email);
@@ -123,6 +131,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @UseGuards(RefreshJwtAuthGuard)
   @SerializeOutput(TokensAndUserSchema)
   async refresh(

@@ -35,3 +35,11 @@ export const UserSchema = z.object({
 });
 
 export type User = z.infer<typeof UserSchema>;
+
+export const UserProfileSchema = UserSchema.omit({
+  password: true,
+  createdAt: true,
+  updatedAt: true,
+  hashedRefreshToken: true,
+});
+export type UserProfile = z.infer<typeof UserProfileSchema>;

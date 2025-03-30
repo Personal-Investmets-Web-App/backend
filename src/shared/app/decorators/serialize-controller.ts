@@ -1,7 +1,9 @@
 import { ZodSchema } from 'zod';
 
 /**
- * Decorator factory that validates the return value of a Controller method against a Zod schema
+ * Decorator factory that validates the return value of a Controller method against a Zod schema.
+ *
+ * MUST BE RIGHT AT THE TOP OF THE CONTROLLER METHOD.
  * @param schema The Zod schema to validate the return value against
  */
 export function SerializeOutput(schema: ZodSchema) {

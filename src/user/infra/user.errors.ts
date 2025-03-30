@@ -4,8 +4,8 @@ import {
   DeletionError,
   NotFoundError,
   UpdateError,
-} from 'src/shared/errors/crud-erros';
-import { DbError } from 'src/shared/errors/db-errors';
+} from 'src/shared/infra/errors/crud-erros';
+import { DbError } from 'src/shared/infra/errors/db-errors';
 import { HashError } from 'src/shared/utils/cripto';
 
 export type CreateUserInDbError = AlreadyExistsError | DbError | CreationError;

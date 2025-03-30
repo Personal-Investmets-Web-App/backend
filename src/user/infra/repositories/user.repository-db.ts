@@ -11,7 +11,7 @@ import {
   UpdateUserInDbError,
 } from '../user.errors';
 import { eq } from 'drizzle-orm';
-import { DB_ERRORS, DbError } from 'src/shared/errors/db-errors';
+import { DB_ERRORS, DbError } from 'src/shared/infra/errors/db-errors';
 import {
   AlreadyExistsError,
   CreationError,
@@ -19,7 +19,7 @@ import {
   NotFoundError,
   UpdateError,
   DeletionError,
-} from 'src/shared/errors/crud-erros';
+} from 'src/shared/infra/errors/crud-erros';
 
 @Injectable()
 export class UserRepositoryDatabase implements UserRepository {
