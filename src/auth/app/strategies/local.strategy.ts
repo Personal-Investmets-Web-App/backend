@@ -8,6 +8,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from '../auth.service';
+import { AUTH_ERRORS } from '../../infra/auth.errors';
+import { CRUD_ERRORS } from 'src/shared/errors/crud-erros';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -30,13 +32,13 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     if (user.isErr()) {
       this.logger.error(user.error);
       if (
-        user.error.type === 'USER_PASSWORD_IS_INVALID_ERROR' ||
-        user.error.type === 'USER_HAS_NO_PASSWORD_ERROR'
+        user.error.type === AUTH_ERRORS.USER_PASSWORD_IS_INVALID_ERROR ||
+        user.error.type === AUTH_ERRORS.USER_HAS_NO_PASSWORD_ERROR
       ) {
         throw new UnauthorizedException();
       }
 
-      if (user.error.type === 'NOT_FOUND') {
+      if (user.error.type === CRUD_ERRORS.NOT_FOUND) {
         throw new BadRequestException(user.error.type);
       }
 

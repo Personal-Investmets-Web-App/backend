@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserSchema } from 'src/users/users.models';
+import { UserSchema } from 'src/user/domain/user.entities';
 
 export const UserProfileSchema = UserSchema.omit({
   password: true,
@@ -42,6 +42,8 @@ export const RegisterWithEmailAndPasswordSchema = UserSchema.pick({
 }).extend({
   email: z.string().email('Invalid email format'),
   password: z.string().min(8, 'Password must be at least 8 characters long'),
+  name: z.string().min(1, 'Name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
 });
 export type RegisterWithEmailAndPasswordDto = z.infer<
   typeof RegisterWithEmailAndPasswordSchema

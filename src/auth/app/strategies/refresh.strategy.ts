@@ -2,7 +2,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { envs } from 'src/config/envs';
-import { UserJwt, UserJwtSchema } from '../auth.models';
+import { UserJwt, UserJwtSchema } from '../../infra/auth.models';
 import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
 import { Request } from 'express';
 import { AuthService } from '../auth.service';

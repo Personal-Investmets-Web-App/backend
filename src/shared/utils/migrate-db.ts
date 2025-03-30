@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import * as Schema from 'src/drizzle/schema';
+import * as Schema from 'src/database/infra/schema';
 import { envs } from 'src/config/envs';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 

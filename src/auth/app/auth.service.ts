@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { UserService } from 'src/user/app/user.service';
 import { JwtService } from '@nestjs/jwt';
 import {
   comparePassword,
@@ -7,22 +7,29 @@ import {
   verifyLongString,
 } from 'src/shared/utils/cripto';
 import { errAsync, okAsync, Result } from 'neverthrow';
-import { User, UserInsertDto, UserInsertSchema } from 'src/users/users.models';
-import { LoginDto, LoginSchema, UserJwt, UserJwtSchema } from './auth.models';
+import {
+  LoginDto,
+  LoginSchema,
+  UserJwt,
+  UserJwtSchema,
+} from '../infra/auth.models';
 import { envs } from 'src/config/envs';
 import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
 import {
+  AUTH_ERRORS,
   IssueTokenError,
   UserHasNoPasswordError,
   UserPasswordIsInvalidError,
   ValidateUserWithPasswordError,
-} from './auth.errors';
+} from '../infra/auth.errors';
+import { CreateUserDto, CreateUserSchema } from 'src/user/domain/user.dtos';
+import { User } from 'src/user/domain/user.entities';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   constructor(
-    private usersService: UsersService,
+    private usersService: UserService,
     private jwtService: JwtService,
   ) {}
 
@@ -30,7 +37,7 @@ export class AuthService {
   async validateUserWithPassword(
     loginDto: LoginDto,
   ): Promise<Result<User, ValidateUserWithPasswordError>> {
-    const user = await this.usersService.getUserFromDbByEmail(loginDto.email);
+    const user = await this.usersService.getUserByEmail(loginDto.email);
     if (user.isErr()) {
       this.logger.error('validateUserWithPassword', user.error);
       return errAsync(user.error);
@@ -41,7 +48,7 @@ export class AuthService {
     if (!user.value.password) {
       this.logger.error('validateUserWithPassword', 'User has no password');
       const userHasNoPasswordError: UserHasNoPasswordError = {
-        type: 'USER_HAS_NO_PASSWORD_ERROR',
+        type: AUTH_ERRORS.USER_HAS_NO_PASSWORD_ERROR,
         error: new Error('User has no password, try another login method'),
       };
       return errAsync(userHasNoPasswordError);
@@ -51,10 +58,11 @@ export class AuthService {
       loginDto.password,
       user.value.password,
     );
-    if (!isPasswordValid) {
+
+    if (isPasswordValid.isErr()) {
       this.logger.error('validateUserWithPassword', 'User password is invalid');
       const userPasswordIsInvalidError: UserPasswordIsInvalidError = {
-        type: 'USER_PASSWORD_IS_INVALID_ERROR',
+        type: AUTH_ERRORS.USER_PASSWORD_IS_INVALID_ERROR,
         error: new Error('User password is invalid'),
       };
       return errAsync(userPasswordIsInvalidError);
@@ -64,16 +72,16 @@ export class AuthService {
   }
 
   async validateUser(email: string) {
-    const user = await this.usersService.getUserFromDbByEmail(email);
+    const user = await this.usersService.getUserByEmail(email);
     if (user.isErr()) {
       return errAsync(user.error);
     }
     return okAsync(user.value);
   }
 
-  @ValidateFuncInput(UserInsertSchema)
-  async register(createUserDto: UserInsertDto) {
-    const user = await this.usersService.createUserInDb(createUserDto);
+  @ValidateFuncInput(CreateUserSchema)
+  async register(createUserDto: CreateUserDto) {
+    const user = await this.usersService.createUser(createUserDto);
     if (user.isErr()) {
       return errAsync(user.error);
     }
@@ -89,8 +97,12 @@ export class AuthService {
     }
 
     const hashedRefreshToken = await hashLongString(tokens.value.refreshToken);
-    const updatedUser = await this.usersService.updateUserInDbById(user.id, {
-      hashedRefreshToken: hashedRefreshToken,
+    if (hashedRefreshToken.isErr()) {
+      return errAsync(hashedRefreshToken.error);
+    }
+
+    const updatedUser = await this.usersService.updateUserById(user.id, {
+      hashedRefreshToken: hashedRefreshToken.value,
     });
 
     if (updatedUser.isErr()) {
@@ -103,8 +115,9 @@ export class AuthService {
     });
   }
 
+  @ValidateFuncInput(UserJwtSchema)
   async logOut(user: UserJwt) {
-    const updatedUser = await this.usersService.updateUserInDbById(user.id, {
+    const updatedUser = await this.usersService.updateUserById(user.id, {
       hashedRefreshToken: null,
     });
 
@@ -152,7 +165,7 @@ export class AuthService {
       (user: UserJwt) => this.jwtService.sign(user),
       () => {
         const issueTokenError: IssueTokenError = {
-          type: 'ISSUE_TOKEN_ERROR',
+          type: AUTH_ERRORS.ISSUE_TOKEN_ERROR,
           error: new Error('Failed to issue access token'),
         };
         return issueTokenError;
@@ -171,7 +184,7 @@ export class AuthService {
         }),
       () => {
         const issueTokenError: IssueTokenError = {
-          type: 'ISSUE_TOKEN_ERROR',
+          type: AUTH_ERRORS.ISSUE_TOKEN_ERROR,
           error: new Error('Failed to issue refresh token'),
         };
         return issueTokenError;
@@ -181,14 +194,14 @@ export class AuthService {
   }
 
   async validateRefreshToken(userId: number, refreshToken: string) {
-    const user = await this.usersService.getUserFromDbById(userId);
+    const user = await this.usersService.getUserById(userId);
     if (user.isErr()) {
       return errAsync(user.error);
     }
 
     if (!user.value.hashedRefreshToken) {
       return errAsync({
-        type: 'EXPIRED_REFRESH_TOKEN_ERROR',
+        type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
         error: new Error('User has no refresh token'),
       });
     }
@@ -198,9 +211,13 @@ export class AuthService {
       user.value.hashedRefreshToken,
     );
 
-    if (!isRefreshTokenValid) {
+    if (isRefreshTokenValid.isErr()) {
+      return errAsync(isRefreshTokenValid.error);
+    }
+
+    if (!isRefreshTokenValid.value) {
       return errAsync({
-        type: 'EXPIRED_REFRESH_TOKEN_ERROR',
+        type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
         error: new Error('Refresh token is invalid'),
       });
     }

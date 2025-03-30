@@ -3,6 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
 import { envs } from 'src/config/envs';
+import { DB_ERRORS } from 'src/shared/errors/db-errors';
+import { REGISTER_METHOD } from 'src/user/domain/user.entities';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -48,7 +50,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     }
 
     // Se descarta el error de DBError
-    if (registeredUser.error.type === 'DB_ERROR') {
+    if (registeredUser.error.type === DB_ERRORS.DB_ERROR) {
       this.logger.error('Error validating user', registeredUser.error);
       throw new HttpException(
         'Error validating user',
@@ -64,7 +66,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       name: profile.name?.givenName ?? '',
       lastName: profile.name?.familyName ?? '',
       profilePic: profile.photos![0].value ?? undefined,
-      registerMethod: 'google',
+      registerMethod: REGISTER_METHOD.GOOGLE,
     });
 
     // Se valida que el usuario se haya creado correctamente

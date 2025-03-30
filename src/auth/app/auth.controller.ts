@@ -27,7 +27,7 @@ import {
   UserJwtSchema,
   UserProfile,
   UserProfileSchema,
-} from './auth.models';
+} from '../infra/auth.models';
 
 import { LocalAuthGuard } from './guards/local.guard';
 import { JwtAuthGuard } from './guards/jwt.guard';
@@ -37,6 +37,8 @@ import { GoogleAuthGuard } from './guards/google.guard';
 import { SerializeOutput } from 'src/shared/decorators/serialize-controller';
 import { BodyValidationGuard } from 'src/shared/guards/validate-body.guard';
 import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
+import { CRUD_ERRORS } from 'src/shared/errors/crud-erros';
+import { REGISTER_METHOD } from 'src/user/domain/user.entities';
 
 @Controller('api/auth')
 export class AuthController {
@@ -78,6 +80,7 @@ export class AuthController {
       this.logger.error(result.error);
       throw new InternalServerErrorException();
     }
+
     return {
       message: 'Logged out successfully',
     };
@@ -85,16 +88,17 @@ export class AuthController {
 
   @Post('register/email')
   @UseGuards(new BodyValidationGuard(RegisterWithEmailAndPasswordSchema))
+  @SerializeOutput(TokensAndUserSchema)
   async registerWithEmailAndPassword(
     @Body() registerDto: RegisterWithEmailAndPasswordDto,
   ): Promise<TokensAndUserDto> {
     const result = await this.authService.register({
       ...registerDto,
-      registerMethod: 'email',
+      registerMethod: REGISTER_METHOD.EMAIL,
     });
 
     if (result.isErr()) {
-      if (result.error.type === 'ALREADY_EXISTS') {
+      if (result.error.type === CRUD_ERRORS.ALREADY_EXISTS) {
         throw new BadRequestException(result.error.type);
       }
       this.logger.error(result.error);
@@ -129,6 +133,7 @@ export class AuthController {
       this.logger.error(result.error);
       throw new InternalServerErrorException();
     }
+
     return {
       user: req.user,
       accessToken: result.value.accessToken,
