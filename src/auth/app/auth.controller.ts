@@ -56,6 +56,7 @@ export class AuthController {
 
   @Post('local/login')
   @Public()
+  @HttpCode(HttpStatus.OK)
   @UseGuards(new BodyValidationGuard(LoginSchema), LocalAuthGuard)
   @SerializeOutput(UserAndAccessTokenSchema)
   async localLogin(
