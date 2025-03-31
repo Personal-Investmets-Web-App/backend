@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UserSchema } from 'src/user/domain/user.entities';
+import { Request } from 'express';
 
 export const UserJwtSchema = UserSchema.omit({
   password: true,
@@ -10,12 +11,11 @@ export const UserJwtSchema = UserSchema.omit({
 });
 export type UserJwt = z.infer<typeof UserJwtSchema>;
 
-export const TokensAndUserSchema = z.object({
+export const UserAndAccessTokenSchema = z.object({
   user: UserJwtSchema,
   accessToken: z.string(),
-  refreshToken: z.string(),
 });
-export type TokensAndUserDto = z.infer<typeof TokensAndUserSchema>;
+export type UserAndAccessTokenDto = z.infer<typeof UserAndAccessTokenSchema>;
 
 export const LoginSchema = UserSchema.pick({
   email: true,
@@ -75,4 +75,5 @@ and the addition of the user property
 */
 export class RefreshJwtStrategyRequest extends Request {
   user: UserJwt;
+  cookies: any;
 }

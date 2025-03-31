@@ -12,6 +12,7 @@ interface EnvVars {
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REDIRECT_URI: string;
   FRONTEND_REDIRECT_URI: string;
+  REFRESH_COOKIE_EXPIRE_IN_SECONDS: number;
 }
 
 const envsSchema = z
@@ -26,6 +27,7 @@ const envsSchema = z
     GOOGLE_CLIENT_SECRET: z.coerce.string(),
     GOOGLE_REDIRECT_URI: z.coerce.string(),
     FRONTEND_REDIRECT_URI: z.coerce.string(),
+    REFRESH_COOKIE_EXPIRE_IN_SECONDS: z.coerce.number(),
   })
   .passthrough();
 

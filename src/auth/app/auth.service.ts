@@ -130,12 +130,14 @@ export class AuthService {
 
   @ValidateFuncInput(UserJwtSchema)
   async refreshToken(user: UserJwt) {
-    const tokens = await this.login(user);
-    if (tokens.isErr()) {
-      return errAsync(tokens.error);
+    const accessToken = this.createAccessToken(user);
+    if (accessToken.isErr()) {
+      return errAsync(accessToken.error);
     }
 
-    return okAsync(tokens.value);
+    return okAsync({
+      accessToken: accessToken.value,
+    });
   }
 
   @ValidateFuncInput(UserJwtSchema)

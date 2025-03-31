@@ -10,6 +10,7 @@ import {
   Post,
   Redirect,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 
@@ -22,11 +23,12 @@ import {
   RefreshJwtStrategyRequest,
   RegisterWithEmailAndPasswordDto,
   RegisterWithEmailAndPasswordSchema,
-  TokensAndUserDto,
-  TokensAndUserSchema,
+  UserAndAccessTokenDto,
+  UserAndAccessTokenSchema,
   UserJwt,
   UserJwtSchema,
 } from '../infra/auth.models';
+import { Response } from 'express';
 
 import { LocalAuthGuard } from './guards/local.guard';
 import { RefreshJwtAuthGuard } from './guards/refresh-jwt.guard';
@@ -50,57 +52,25 @@ export class AuthController {
 
   constructor(private authService: AuthService) {}
 
-  @Get('google/login')
-  @Public()
-  @UseGuards(GoogleAuthGuard)
-  handleGoogleLogin() {
-    // Logic Managed by Google Auth Guard, no need to implement
-    // Redirects to Google's OAuth page
-  }
-
-  @Get('google/redirect')
-  @Public()
-  @UseGuards(GoogleAuthGuard)
-  @Redirect(`${envs.FRONTEND_REDIRECT_URI}}`, 302)
-  async handleGoogleRedirect(@Request() req: GoogleStrategyRequest) {
-    const result = await this.login(req.user);
-    return {
-      url: `${envs.FRONTEND_REDIRECT_URI}?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
-      statusCode: 302,
-    };
-  }
-
-  @Post('login')
+  @Post('local/login')
   @Public()
   @UseGuards(new BodyValidationGuard(LoginSchema), LocalAuthGuard)
-  @SerializeOutput(TokensAndUserSchema)
+  @SerializeOutput(UserAndAccessTokenSchema)
   async localLogin(
     @Request() req: LocalStrategyRequest,
-  ): Promise<TokensAndUserDto> {
-    return await this.login(req.user);
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UserAndAccessTokenDto> {
+    return await this.login(req.user, res);
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  async logOut(@Request() req: JwtStrategyRequest) {
-    const result = await this.authService.logOut(req.user);
-    if (result.isErr()) {
-      this.logger.error(result.error);
-      throw new InternalServerErrorException();
-    }
-
-    return {
-      message: 'Logged out successfully',
-    };
-  }
-
-  @Post('register/email')
+  @Post('local/register')
   @Public()
   @UseGuards(new BodyValidationGuard(RegisterWithEmailAndPasswordSchema))
-  @SerializeOutput(TokensAndUserSchema)
+  @SerializeOutput(UserAndAccessTokenSchema)
   async registerWithEmailAndPassword(
     @Body() registerDto: RegisterWithEmailAndPasswordDto,
-  ): Promise<TokensAndUserDto> {
+    @Res() res: Response,
+  ): Promise<UserAndAccessTokenDto> {
     const result = await this.authService.register({
       ...registerDto,
       registerMethod: REGISTER_METHOD.EMAIL,
@@ -114,7 +84,77 @@ export class AuthController {
       throw new InternalServerErrorException();
     }
 
-    return this.login(result.value);
+    return await this.login(result.value, res);
+  }
+
+  @Post('google/login')
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  handleGoogleLogin() {
+    // Logic Managed by Google Auth Guard, no need to implement
+    // Redirects to Google's OAuth page
+  }
+
+  @Post('google/redirect')
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  @Redirect(`${envs.FRONTEND_REDIRECT_URI}}`, 302)
+  async handleGoogleRedirect(
+    @Request() req: GoogleStrategyRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.login(req.user, res);
+    return {
+      url: `${envs.FRONTEND_REDIRECT_URI}?accessToken=${result.accessToken}`,
+      statusCode: 302,
+    };
+  }
+
+  @Post('google/authenticate')
+  @SerializeOutput(UserAndAccessTokenSchema)
+  async googleCallback(
+    @Request() req: JwtStrategyRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UserAndAccessTokenDto> {
+    return await this.login(req.user, res);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logOut(
+    @Request() req: JwtStrategyRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.logOut(req.user);
+    if (result.isErr()) {
+      this.logger.error(result.error);
+      throw new InternalServerErrorException();
+    }
+
+    res.clearCookie('refreshToken');
+
+    return {
+      message: 'Logged out successfully',
+    };
+  }
+
+  @Post('refresh')
+  @Public()
+  @UseGuards(RefreshJwtAuthGuard)
+  @SerializeOutput(UserAndAccessTokenSchema)
+  async refresh(
+    @Request() req: RefreshJwtStrategyRequest,
+  ): Promise<UserAndAccessTokenDto> {
+    const result = await this.authService.refreshToken(req.user);
+    if (result.isErr()) {
+      this.logger.error(result.error);
+      throw new InternalServerErrorException();
+    }
+
+    return {
+      user: req.user,
+      accessToken: result.value.accessToken,
+    };
   }
 
   @Get('profile')
@@ -130,38 +170,23 @@ export class AuthController {
     return result.value;
   }
 
-  @Post('refresh')
-  @Public()
-  @UseGuards(RefreshJwtAuthGuard)
-  @SerializeOutput(TokensAndUserSchema)
-  async refresh(
-    @Request() req: RefreshJwtStrategyRequest,
-  ): Promise<TokensAndUserDto> {
-    const result = await this.authService.refreshToken(req.user);
-    if (result.isErr()) {
-      this.logger.error(result.error);
-      throw new InternalServerErrorException();
-    }
-
-    return {
-      user: req.user,
-      accessToken: result.value.accessToken,
-      refreshToken: result.value.refreshToken,
-    };
-  }
-
   @ValidateFuncInput(UserJwtSchema)
-  async login(user: UserJwt) {
+  async login(user: UserJwt, res: Response) {
     const tokens = await this.authService.login(user);
     if (tokens.isErr()) {
       this.logger.error(tokens.error);
       throw new InternalServerErrorException();
     }
 
+    res.cookie('refreshToken', tokens.value.refreshToken, {
+      httpOnly: true,
+      secure: false,
+      maxAge: envs.REFRESH_COOKIE_EXPIRE_IN_SECONDS * 1000,
+    });
+
     return {
       user: user,
       accessToken: tokens.value.accessToken,
-      refreshToken: tokens.value.refreshToken,
     };
   }
 }
