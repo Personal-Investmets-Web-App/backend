@@ -80,4 +80,28 @@ export class UserService {
   async getAllUsers() {
     return this.userRepositoryDatabase.findAll();
   }
+
+  async createRefreshToken(userId: number, hashedToken: string) {
+    return this.userRepositoryDatabase.createRefreshToken({
+      userId,
+      hashedToken,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // 30 days
+    });
+  }
+
+  async findRefreshTokenByUserId(userId: number) {
+    return this.userRepositoryDatabase.findRefreshTokensByUserId(userId);
+  }
+
+  async deleteAllRefreshTokenByUser(userId: number) {
+    return this.userRepositoryDatabase.deleteAllRefreshTokenByUserId(userId);
+  }
+
+  async deleteAllRefreshTokens() {
+    return this.userRepositoryDatabase.deleteAllRefreshTokens();
+  }
+
+  async deleteExpiredRefreshTokens() {
+    return this.userRepositoryDatabase.deleteExpiredRefreshTokens();
+  }
 }

@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Profile, Strategy } from 'passport-google-oauth20';
 import { AuthService } from '../auth.service';
 import { envs } from 'src/config/envs';
-import { DB_ERRORS } from 'src/shared/errors/db-errors';
+import { DB_ERRORS } from 'src/shared/infra/errors/db-errors';
 import { REGISTER_METHOD } from 'src/user/domain/user.entities';
 
 @Injectable()

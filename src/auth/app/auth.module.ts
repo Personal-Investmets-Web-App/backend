@@ -9,6 +9,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { envs } from 'src/config/envs';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { RefreshJwtStrategy } from './strategies/refresh.strategy';
+import { APP_GUARD } from '@nestjs/core';
+import { RolesGuard } from './guards/roles.guard';
+import { JwtAuthGuard } from './guards/jwt.guard';
 
 @Module({
   controllers: [AuthController],
@@ -18,6 +21,14 @@ import { RefreshJwtStrategy } from './strategies/refresh.strategy';
     JwtStrategy,
     RefreshJwtStrategy,
     GoogleStrategy,
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
   imports: [
     UserModule,

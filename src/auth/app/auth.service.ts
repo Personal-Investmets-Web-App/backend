@@ -14,7 +14,7 @@ import {
   UserJwtSchema,
 } from '../infra/auth.models';
 import { envs } from 'src/config/envs';
-import { ValidateFuncInput } from 'src/shared/decorators/validate-function-input';
+import { ValidateFuncInput } from 'src/shared/app/decorators/validate-function-input';
 import {
   AUTH_ERRORS,
   IssueTokenError,
@@ -23,7 +23,8 @@ import {
   ValidateUserWithPasswordError,
 } from '../infra/auth.errors';
 import { CreateUserDto, CreateUserSchema } from 'src/user/domain/user.dtos';
-import { User } from 'src/user/domain/user.entities';
+import { RefreshToken, User } from 'src/user/domain/user.entities';
+import { isDateAfter } from 'src/shared/utils/dates';
 
 @Injectable()
 export class AuthService {
@@ -101,12 +102,13 @@ export class AuthService {
       return errAsync(hashedRefreshToken.error);
     }
 
-    const updatedUser = await this.usersService.updateUserById(user.id, {
-      hashedRefreshToken: hashedRefreshToken.value,
-    });
+    const createdRefreshToken = await this.usersService.createRefreshToken(
+      user.id,
+      hashedRefreshToken.value,
+    );
 
-    if (updatedUser.isErr()) {
-      return errAsync(updatedUser.error);
+    if (createdRefreshToken.isErr()) {
+      return errAsync(createdRefreshToken.error);
     }
 
     return okAsync({
@@ -116,26 +118,27 @@ export class AuthService {
   }
 
   @ValidateFuncInput(UserJwtSchema)
-  async logOut(user: UserJwt) {
-    const updatedUser = await this.usersService.updateUserById(user.id, {
-      hashedRefreshToken: null,
-    });
+  async logOutAllDevices(user: UserJwt) {
+    const deletedRefreshToken =
+      await this.usersService.deleteAllRefreshTokenByUser(user.id);
 
-    if (updatedUser.isErr()) {
-      return errAsync(updatedUser.error);
+    if (deletedRefreshToken.isErr()) {
+      return errAsync(deletedRefreshToken.error);
     }
 
-    return okAsync(updatedUser.value);
+    return okAsync(undefined);
   }
 
   @ValidateFuncInput(UserJwtSchema)
   async refreshToken(user: UserJwt) {
-    const tokens = await this.login(user);
-    if (tokens.isErr()) {
-      return errAsync(tokens.error);
+    const accessToken = this.createAccessToken(user);
+    if (accessToken.isErr()) {
+      return errAsync(accessToken.error);
     }
 
-    return okAsync(tokens.value);
+    return okAsync({
+      accessToken: accessToken.value,
+    });
   }
 
   @ValidateFuncInput(UserJwtSchema)
@@ -194,34 +197,70 @@ export class AuthService {
   }
 
   async validateRefreshToken(userId: number, refreshToken: string) {
-    const user = await this.usersService.getUserById(userId);
-    if (user.isErr()) {
-      return errAsync(user.error);
+    const refreshTokens =
+      await this.usersService.findRefreshTokenByUserId(userId);
+    if (refreshTokens.isErr()) {
+      return errAsync(refreshTokens.error);
     }
 
-    if (!user.value.hashedRefreshToken) {
+    if (refreshTokens.value.length === 0) {
       return errAsync({
         type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
         error: new Error('User has no refresh token'),
       });
     }
 
-    const isRefreshTokenValid = await verifyLongString(
-      refreshToken,
-      user.value.hashedRefreshToken,
-    );
-
-    if (isRefreshTokenValid.isErr()) {
-      return errAsync(isRefreshTokenValid.error);
+    let foundRefreshToken: RefreshToken | undefined;
+    for (const token of refreshTokens.value) {
+      const isRefreshTokenValid = await verifyLongString(
+        refreshToken,
+        token.hashedToken,
+      );
+      if (isRefreshTokenValid.isOk()) {
+        foundRefreshToken = token;
+        break;
+      }
     }
 
-    if (!isRefreshTokenValid.value) {
+    if (!foundRefreshToken) {
       return errAsync({
         type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
         error: new Error('Refresh token is invalid'),
       });
     }
 
-    return okAsync(user.value);
+    const isRefreshTokenExpired = isDateAfter(
+      new Date(),
+      foundRefreshToken.expiresAt,
+    );
+
+    if (isRefreshTokenExpired) {
+      return errAsync({
+        type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
+        error: new Error('Refresh token is expired'),
+      });
+    }
+
+    return okAsync(foundRefreshToken);
+  }
+
+  async deleteExpiredRefreshTokens() {
+    const expiredRefreshTokens =
+      await this.usersService.deleteExpiredRefreshTokens();
+    if (expiredRefreshTokens.isErr()) {
+      return errAsync(expiredRefreshTokens.error);
+    }
+
+    return okAsync(undefined);
+  }
+
+  async deleteAllRefreshTokens() {
+    const deletedRefreshTokens =
+      await this.usersService.deleteAllRefreshTokens();
+    if (deletedRefreshTokens.isErr()) {
+      return errAsync(deletedRefreshTokens.error);
+    }
+
+    return okAsync(undefined);
   }
 }
