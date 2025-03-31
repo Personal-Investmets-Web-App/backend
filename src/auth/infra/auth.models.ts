@@ -7,9 +7,14 @@ export const UserJwtSchema = UserSchema.omit({
   profilePic: true,
   createdAt: true,
   updatedAt: true,
-  hashedRefreshToken: true,
 });
 export type UserJwt = z.infer<typeof UserJwtSchema>;
+
+export const JwtSchema = UserJwtSchema.extend({
+  iat: z.number(),
+  exp: z.number(),
+});
+export type Jwt = z.infer<typeof JwtSchema>;
 
 export const UserAndAccessTokenSchema = z.object({
   user: UserJwtSchema,

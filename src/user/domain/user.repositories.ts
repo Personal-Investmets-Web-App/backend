@@ -1,6 +1,10 @@
 import { Result } from 'neverthrow';
-import { UniqueUserColumn, User } from './user.entities';
-import { CreateUserDto, UpdateUserDto } from './user.dtos';
+import { RefreshToken, UniqueUserColumn, User } from './user.entities';
+import {
+  CreateRefreshTokenDto,
+  CreateUserDto,
+  UpdateUserDto,
+} from './user.dtos';
 import { BaseRepository } from 'src/shared/domain/base.repository';
 
 export abstract class UserRepository
@@ -18,4 +22,18 @@ export abstract class UserRepository
     column: UniqueUserColumn,
   ): Promise<Result<User, any>>;
   abstract findAll(): Promise<Result<User[], any>>;
+}
+
+export abstract class RefreshTokenRepository {
+  abstract create(
+    createDto: CreateRefreshTokenDto,
+  ): Promise<Result<RefreshToken, any>>;
+  abstract findByUserId(userId: number): Promise<Result<RefreshToken[], any>>;
+  abstract deleteByUserIdAndHashedToken(
+    userId: number,
+    hashedToken: string,
+  ): Promise<Result<RefreshToken, any>>;
+  abstract deleteAllByUserId(userId: number): Promise<Result<void, any>>;
+  abstract deleteAll(): Promise<Result<void, any>>;
+  abstract deleteExpired(): Promise<Result<void, any>>;
 }

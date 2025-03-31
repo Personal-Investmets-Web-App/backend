@@ -8,7 +8,6 @@ export const CreateUserSchema = UserSchema.omit({
 }).extend({
   role: z.nativeEnum(ROLE).optional(),
   profilePic: z.string().nullable().optional(),
-  hashedRefreshToken: z.string().nullable().optional(),
   password: z.string().nullable().optional(),
 });
 export type CreateUserDto = z.infer<typeof CreateUserSchema>;

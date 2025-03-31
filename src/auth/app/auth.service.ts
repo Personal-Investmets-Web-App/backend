@@ -8,6 +8,7 @@ import {
 } from 'src/shared/utils/cripto';
 import { errAsync, okAsync, Result } from 'neverthrow';
 import {
+  Jwt,
   LoginDto,
   LoginSchema,
   UserJwt,
@@ -97,20 +98,6 @@ export class AuthService {
       return errAsync(tokens.error);
     }
 
-    const hashedRefreshToken = await hashLongString(tokens.value.refreshToken);
-    if (hashedRefreshToken.isErr()) {
-      return errAsync(hashedRefreshToken.error);
-    }
-
-    const createdRefreshToken = await this.usersService.createRefreshToken(
-      user.id,
-      hashedRefreshToken.value,
-    );
-
-    if (createdRefreshToken.isErr()) {
-      return errAsync(createdRefreshToken.error);
-    }
-
     return okAsync({
       accessToken: tokens.value.accessToken,
       refreshToken: tokens.value.refreshToken,
@@ -178,7 +165,7 @@ export class AuthService {
   }
 
   @ValidateFuncInput(UserJwtSchema)
-  createRefreshToken(user: UserJwt) {
+  async createRefreshToken(user: UserJwt) {
     const refreshToken = Result.fromThrowable(
       (user: UserJwt) =>
         this.jwtService.sign(user, {
@@ -193,12 +180,38 @@ export class AuthService {
         return issueTokenError;
       },
     );
-    return refreshToken(user);
+
+    const issuedRefreshToken = refreshToken(user);
+    if (issuedRefreshToken.isErr()) {
+      return errAsync(issuedRefreshToken.error);
+    }
+
+    const hashedRefreshToken = await hashLongString(issuedRefreshToken.value);
+    if (hashedRefreshToken.isErr()) {
+      return errAsync(hashedRefreshToken.error);
+    }
+
+    const decodedRefreshToken: Jwt = this.jwtService.decode<Jwt>(
+      issuedRefreshToken.value,
+    );
+
+    const expirationDate = new Date(decodedRefreshToken.exp * 1000);
+
+    const createdRefreshToken = await this.usersService.createRefreshToken(
+      user.id,
+      hashedRefreshToken.value,
+      expirationDate,
+    );
+
+    if (createdRefreshToken.isErr()) {
+      return errAsync(createdRefreshToken.error);
+    }
+    return okAsync(issuedRefreshToken.value);
   }
 
   async validateRefreshToken(userId: number, refreshToken: string) {
     const refreshTokens =
-      await this.usersService.findRefreshTokenByUserId(userId);
+      await this.usersService.findRefreshTokensByUserId(userId);
     if (refreshTokens.isErr()) {
       return errAsync(refreshTokens.error);
     }
@@ -206,7 +219,7 @@ export class AuthService {
     if (refreshTokens.value.length === 0) {
       return errAsync({
         type: AUTH_ERRORS.EXPIRED_REFRESH_TOKEN_ERROR,
-        error: new Error('User has no refresh token'),
+        error: new Error('User has no refresh tokens'),
       });
     }
 

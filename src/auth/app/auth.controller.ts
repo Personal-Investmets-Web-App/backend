@@ -71,7 +71,7 @@ export class AuthController {
   @SerializeOutput(UserAndAccessTokenSchema)
   async registerWithEmailAndPassword(
     @Body() registerDto: RegisterWithEmailAndPasswordDto,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<UserAndAccessTokenDto> {
     const result = await this.authService.register({
       ...registerDto,
