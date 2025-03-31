@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -45,6 +46,7 @@ import {
 } from 'src/user/domain/user.entities';
 import { Public } from './decorators/public.decorator';
 import { envs } from 'src/config/envs';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Controller('api/auth')
 export class AuthController {
@@ -121,16 +123,10 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logOut(
+  logOut(
     @Request() req: JwtStrategyRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logOut(req.user);
-    if (result.isErr()) {
-      this.logger.error(result.error);
-      throw new InternalServerErrorException();
-    }
-
     res.clearCookie('refreshToken');
 
     return {
@@ -187,6 +183,33 @@ export class AuthController {
     return {
       user: user,
       accessToken: tokens.value.accessToken,
+    };
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async deleteExpiredRefreshTokens() {
+    const result = await this.authService.deleteExpiredRefreshTokens();
+    if (result.isErr()) {
+      this.logger.error(result.error);
+      throw new InternalServerErrorException();
+    }
+
+    return {
+      message: 'Expired refresh tokens deleted successfully',
+    };
+  }
+
+  @Delete('refresh-tokens')
+  @HttpCode(HttpStatus.OK)
+  async deleteAllRefreshTokens() {
+    const result = await this.authService.deleteAllRefreshTokens();
+    if (result.isErr()) {
+      this.logger.error(result.error);
+      throw new InternalServerErrorException();
+    }
+
+    return {
+      message: 'All refresh tokens deleted successfully',
     };
   }
 }

@@ -17,3 +17,24 @@ export type UpdateUserInDbError = DbError | NotFoundError | UpdateError;
 export type DeleteUserInDbError = DbError | NotFoundError | DeletionError;
 
 export type CreateUserError = CreateUserInDbError | HashError;
+
+export type CreateRefreshTokenInDbError = DbError | CreationError;
+
+export type GetRefreshTokenFromDbError = DbError | NotFoundError;
+
+export type DeleteRefreshTokenByUserIdFromDbError =
+  | DbError
+  | NotFoundError
+  | DeletionError;
+
+export type DeleteAllRefreshTokensByUserFromDbError =
+  | DbError
+  | NotFoundError
+  | DeletionError;
+
+export type DeleteAllRefreshTokensFromDbError = DbError | DeletionError;
+
+export type DeleteExpiredRefreshTokensFromDbError =
+  | DbError
+  | NotFoundError
+  | DeletionError;

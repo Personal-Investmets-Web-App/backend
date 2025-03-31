@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ROLE, UserSchema } from './user.entities';
+import { RefreshTokenSchema, ROLE, UserSchema } from './user.entities';
 
 export const CreateUserSchema = UserSchema.omit({
   id: true,
@@ -15,3 +15,13 @@ export type CreateUserDto = z.infer<typeof CreateUserSchema>;
 
 export const UpdateUserSchema = CreateUserSchema.partial();
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
+
+export const CreateRefreshTokenSchema = RefreshTokenSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CreateRefreshTokenDto = z.infer<typeof CreateRefreshTokenSchema>;
+
+export const UpdateRefreshTokenSchema = CreateRefreshTokenSchema.partial();
+export type UpdateRefreshTokenDto = z.infer<typeof UpdateRefreshTokenSchema>;

@@ -38,10 +38,11 @@ export class RefreshJwtStrategy extends PassportStrategy(
       payload.id,
       refreshToken,
     );
+
     if (result.isErr()) {
       throw new UnauthorizedException();
     }
 
-    return result.value;
+    return payload;
   }
 }
