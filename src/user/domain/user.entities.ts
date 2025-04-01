@@ -30,7 +30,6 @@ export const UserSchema = z.object({
   registerMethod: z.nativeEnum(REGISTER_METHOD),
 
   profilePic: z.string().nullable(),
-  hashedRefreshToken: z.string().nullable(),
   password: z.string().nullable(),
 });
 
@@ -40,7 +39,6 @@ export const UserProfileSchema = UserSchema.omit({
   password: true,
   createdAt: true,
   updatedAt: true,
-  hashedRefreshToken: true,
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 

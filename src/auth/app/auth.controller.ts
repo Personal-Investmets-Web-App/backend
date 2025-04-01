@@ -56,6 +56,7 @@ export class AuthController {
 
   @Post('local/login')
   @Public()
+  @HttpCode(HttpStatus.OK)
   @UseGuards(new BodyValidationGuard(LoginSchema), LocalAuthGuard)
   @SerializeOutput(UserAndAccessTokenSchema)
   async localLogin(
@@ -71,7 +72,7 @@ export class AuthController {
   @SerializeOutput(UserAndAccessTokenSchema)
   async registerWithEmailAndPassword(
     @Body() registerDto: RegisterWithEmailAndPasswordDto,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<UserAndAccessTokenDto> {
     const result = await this.authService.register({
       ...registerDto,

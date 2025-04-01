@@ -5,12 +5,14 @@ import { CreateUserDto, UpdateUserDto } from '../domain/user.dtos';
 import { errAsync, Result } from 'neverthrow';
 import { User } from '../domain/user.entities';
 import { CreateUserError } from '../infra/user.errors';
+import { UserRefreshTokenRepositoryDatabase } from '../infra/repositories/user.refresh-token-repository-db';
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
   constructor(
     private readonly userRepositoryDatabase: UserRepositoryDatabase,
+    private readonly userRefreshTokenRepositoryDatabase: UserRefreshTokenRepositoryDatabase,
   ) {}
 
   async createUser(
@@ -81,27 +83,41 @@ export class UserService {
     return this.userRepositoryDatabase.findAll();
   }
 
-  async createRefreshToken(userId: number, hashedToken: string) {
-    return this.userRepositoryDatabase.createRefreshToken({
+  async createRefreshToken(
+    userId: number,
+    hashedToken: string,
+    expirationDate: Date,
+  ) {
+    return this.userRefreshTokenRepositoryDatabase.create({
       userId,
       hashedToken,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // 30 days
+      expiresAt: expirationDate,
     });
   }
 
-  async findRefreshTokenByUserId(userId: number) {
-    return this.userRepositoryDatabase.findRefreshTokensByUserId(userId);
+  async findRefreshTokensByUserId(userId: number) {
+    return this.userRefreshTokenRepositoryDatabase.findByUserId(userId);
+  }
+
+  async deleteRefreshTokenByUserIdAndHashedToken(
+    userId: number,
+    hashedToken: string,
+  ) {
+    return this.userRefreshTokenRepositoryDatabase.deleteByUserIdAndHashedToken(
+      userId,
+      hashedToken,
+    );
   }
 
   async deleteAllRefreshTokenByUser(userId: number) {
-    return this.userRepositoryDatabase.deleteAllRefreshTokenByUserId(userId);
+    return this.userRefreshTokenRepositoryDatabase.deleteAllByUserId(userId);
   }
 
   async deleteAllRefreshTokens() {
-    return this.userRepositoryDatabase.deleteAllRefreshTokens();
+    return this.userRefreshTokenRepositoryDatabase.deleteAll();
   }
 
   async deleteExpiredRefreshTokens() {
-    return this.userRepositoryDatabase.deleteExpiredRefreshTokens();
+    return this.userRefreshTokenRepositoryDatabase.deleteExpired();
   }
 }
