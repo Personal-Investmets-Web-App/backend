@@ -11,6 +11,10 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   app.use(cookieParser());
+  app.enableCors({
+    origin: ['http://localhost:3000'],
+    credentials: true,
+  });
 
   await app.listen(envs.PORT);
   logger.log(`Invest Control Backend is running on port ${envs.PORT}`);
