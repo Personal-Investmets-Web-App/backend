@@ -32,8 +32,8 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 -G nodejs
 
-# Cambia la propiedad de los archivos al usuario no privilegiado
-RUN chown -R nestjs:nodejs /app
+# # Cambia la propiedad de los archivos al usuario no privilegiado
+# RUN chown -R nestjs:nodejs /app
 
 # Usa el usuario no privilegiado
 USER nestjs

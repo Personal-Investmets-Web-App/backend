@@ -41,12 +41,14 @@ import { ValidateFuncInput } from 'src/shared/app/decorators/validate-function-i
 import { CRUD_ERRORS } from 'src/shared/infra/errors/crud-erros';
 import {
   REGISTER_METHOD,
+  ROLE,
   UserProfile,
   UserProfileSchema,
 } from 'src/user/domain/user.entities';
 import { Public } from './decorators/public.decorator';
 import { envs } from 'src/config/envs';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('api/auth')
 export class AuthController {
@@ -188,6 +190,21 @@ export class AuthController {
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async cronDeleteExpiredRefreshTokens() {
+    const result = await this.authService.deleteExpiredRefreshTokens();
+    if (result.isErr()) {
+      this.logger.error(result.error);
+      throw new InternalServerErrorException();
+    }
+
+    return {
+      message: 'Expired refresh tokens deleted successfully',
+    };
+  }
+
+  @Delete('expired-refresh-tokens')
+  @HttpCode(HttpStatus.OK)
+  @Roles(ROLE.ADMIN)
   async deleteExpiredRefreshTokens() {
     const result = await this.authService.deleteExpiredRefreshTokens();
     if (result.isErr()) {
