@@ -20,6 +20,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getClass(),
     ]);
     if (isPublic) return true;
+
+    // const contextType = context.getType();
+    // // @ts-expect-error not defined in types, but possible
+    // if (contextType === 'graphql') {
+    //   return true;
+    // }
+
     return super.canActivate(context);
   }
 }

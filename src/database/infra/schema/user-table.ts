@@ -30,7 +30,6 @@ export const userTable = pgTable('user_table', {
 
   // Nullable fields
   profilePic: text('profile_pic'),
-  hashedRefreshToken: text('hashed_refresh_token'),
   password: text('password'),
 });
 

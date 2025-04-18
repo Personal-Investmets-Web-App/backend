@@ -15,6 +15,13 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
   canActivate(context: ExecutionContext): boolean {
     this.logger.log('RolesGuard');
+
+    // const contextType = context.getType();
+    // // @ts-expect-error not defined in types, but possible
+    // if (contextType === 'graphql') {
+    //   return true;
+    // }
+
     const requiredRoles = this.reflector.getAllAndOverride<ROLE[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),

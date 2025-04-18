@@ -19,9 +19,12 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@apollo/server": "^4.12.0",
     "@neondatabase/serverless": "^0.10.4",
+    "@nestjs/apollo": "^13.1.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/graphql": "^13.1.0",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
@@ -35,6 +38,7 @@
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.41.0",
     "drizzle-zod": "^0.7.0",
+    "graphql": "^16.10.0",
     "neverthrow": "^8.2.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
@@ -97,7 +101,9 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "modulePaths": ["<rootDir>/.."],
+    "modulePaths": [
+      "<rootDir>/.."
+    ],
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/$1"
     }

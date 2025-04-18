@@ -1,0 +1,52 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type UserGraphql {
+  id: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  role: ROLE!
+  email: String!
+  name: String!
+  lastName: String!
+  registerMethod: REGISTER_METHOD!
+  profilePic: String
+  password: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""The role of the user"""
+enum ROLE {
+  ADMIN
+  USER
+  EDITOR
+}
+
+"""The method used to register the user"""
+enum REGISTER_METHOD {
+  GOOGLE
+  EMAIL
+}
+
+type Query {
+  getAllUsers: [UserGraphql!]!
+}
+
+type Mutation {
+  createUser(createUserInput: CreateUserGraphqlInput!): UserGraphql!
+}
+
+input CreateUserGraphqlInput {
+  email: String!
+  name: String!
+  lastName: String!
+  registerMethod: REGISTER_METHOD!
+  role: ROLE!
+  profilePic: String
+  password: String
+}
