@@ -12,6 +12,7 @@ import {
   Redirect,
   Request,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 
@@ -24,8 +25,8 @@ import {
   RefreshJwtStrategyRequest,
   RegisterWithEmailAndPasswordDto,
   RegisterWithEmailAndPasswordSchema,
-  UserAndAccessTokenDto,
-  UserAndAccessTokenSchema,
+  UserAndTokensDto,
+  UserAndTokensSchema,
   UserJwt,
   UserJwtSchema,
 } from '../infra/auth.models';
@@ -60,22 +61,20 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @UseGuards(new BodyValidationGuard(LoginSchema), LocalAuthGuard)
-  @SerializeOutput(UserAndAccessTokenSchema)
+  @SerializeOutput(UserAndTokensSchema)
   async localLogin(
     @Request() req: LocalStrategyRequest,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<UserAndAccessTokenDto> {
-    return await this.login(req.user, res);
+  ): Promise<UserAndTokensDto> {
+    return await this.login(req.user);
   }
 
   @Post('local/register')
   @Public()
   @UseGuards(new BodyValidationGuard(RegisterWithEmailAndPasswordSchema))
-  @SerializeOutput(UserAndAccessTokenSchema)
+  @SerializeOutput(UserAndTokensSchema)
   async registerWithEmailAndPassword(
     @Body() registerDto: RegisterWithEmailAndPasswordDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<UserAndAccessTokenDto> {
+  ): Promise<UserAndTokensDto> {
     const result = await this.authService.register({
       ...registerDto,
       registerMethod: REGISTER_METHOD.EMAIL,
@@ -89,7 +88,7 @@ export class AuthController {
       throw new InternalServerErrorException();
     }
 
-    return await this.login(result.value, res);
+    return await this.login(result.value);
   }
 
   @Post('google/login')
@@ -104,24 +103,20 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   @Redirect(`${envs.FRONTEND_REDIRECT_URI}}`, 302)
-  async handleGoogleRedirect(
-    @Request() req: GoogleStrategyRequest,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.login(req.user, res);
+  async handleGoogleRedirect(@Request() req: GoogleStrategyRequest) {
+    const result = await this.login(req.user);
     return {
-      url: `${envs.FRONTEND_REDIRECT_URI}?accessToken=${result.accessToken}`,
+      url: `${envs.FRONTEND_REDIRECT_URI}?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
       statusCode: 302,
     };
   }
 
   @Post('google/authenticate')
-  @SerializeOutput(UserAndAccessTokenSchema)
+  @SerializeOutput(UserAndTokensSchema)
   async googleCallback(
     @Request() req: JwtStrategyRequest,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<UserAndAccessTokenDto> {
-    return await this.login(req.user, res);
+  ): Promise<UserAndTokensDto> {
+    return await this.login(req.user);
   }
 
   @Post('logout')
@@ -131,6 +126,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     res.clearCookie('refreshToken');
+    res.clearCookie('accessToken');
 
     return {
       message: 'Logged out successfully',
@@ -140,19 +136,27 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @UseGuards(RefreshJwtAuthGuard)
-  @SerializeOutput(UserAndAccessTokenSchema)
+  @SerializeOutput(UserAndTokensSchema)
   async refresh(
     @Request() req: RefreshJwtStrategyRequest,
-  ): Promise<UserAndAccessTokenDto> {
+  ): Promise<UserAndTokensDto> {
     const result = await this.authService.refreshToken(req.user);
     if (result.isErr()) {
       this.logger.error(result.error);
       throw new InternalServerErrorException();
     }
 
+    if (!('refreshToken' in req.cookies)) {
+      this.logger.error('Refresh token not found in cookies');
+      throw new UnauthorizedException();
+    }
+
+    const refreshToken = req.cookies['refreshToken'];
+
     return {
       user: req.user,
       accessToken: result.value.accessToken,
+      refreshToken,
     };
   }
 
@@ -170,22 +174,17 @@ export class AuthController {
   }
 
   @ValidateFuncInput(UserJwtSchema)
-  async login(user: UserJwt, res: Response) {
+  async login(user: UserJwt) {
     const tokens = await this.authService.login(user);
     if (tokens.isErr()) {
       this.logger.error(tokens.error);
       throw new InternalServerErrorException();
     }
 
-    res.cookie('refreshToken', tokens.value.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      maxAge: envs.REFRESH_COOKIE_EXPIRE_IN_SECONDS * 1000,
-    });
-
     return {
       user: user,
       accessToken: tokens.value.accessToken,
+      refreshToken: tokens.value.refreshToken,
     };
   }
 

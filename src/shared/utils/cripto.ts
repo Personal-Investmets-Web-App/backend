@@ -66,6 +66,16 @@ export const comparePassword = async (password: string, hash: string) => {
     return errAsync(compareError);
   }
 
+  const isMatch = result.value;
+
+  if (!isMatch) {
+    const compareError: CompareError = {
+      type: CRIPTO_ERRORS.COMPARE_ERROR,
+      error: new Error('Password does not match'),
+    };
+    return errAsync(compareError);
+  }
+
   return okAsync(result.value);
 };
 
@@ -97,6 +107,15 @@ export const verifyLongString = async (longString: string, hash: string) => {
     const verifyLongStringError: VerifyLongStringError = {
       type: CRIPTO_ERRORS.VERIFY_LONG_STRING_ERROR,
       error: result.error,
+    };
+    return errAsync(verifyLongStringError);
+  }
+
+  const isMatch = result.value;
+  if (!isMatch) {
+    const verifyLongStringError: VerifyLongStringError = {
+      type: CRIPTO_ERRORS.VERIFY_LONG_STRING_ERROR,
+      error: new Error('Long string does not match'),
     };
     return errAsync(verifyLongStringError);
   }

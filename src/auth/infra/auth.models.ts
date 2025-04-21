@@ -16,11 +16,12 @@ export const JwtSchema = UserJwtSchema.extend({
 });
 export type Jwt = z.infer<typeof JwtSchema>;
 
-export const UserAndAccessTokenSchema = z.object({
+export const UserAndTokensSchema = z.object({
   user: UserJwtSchema,
   accessToken: z.string(),
+  refreshToken: z.string(),
 });
-export type UserAndAccessTokenDto = z.infer<typeof UserAndAccessTokenSchema>;
+export type UserAndTokensDto = z.infer<typeof UserAndTokensSchema>;
 
 export const LoginSchema = UserSchema.pick({
   email: true,
@@ -80,5 +81,7 @@ and the addition of the user property
 */
 export class RefreshJwtStrategyRequest extends Request {
   user: UserJwt;
-  cookies: any;
+  cookies: {
+    [key: string]: string;
+  };
 }
